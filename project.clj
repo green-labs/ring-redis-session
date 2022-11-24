@@ -5,10 +5,10 @@
     {:name "Eclipse Public License"
      :url "https://opensource.org/licenses/EPL-1.0"}
   :dependencies [
-    [com.taoensso/carmine "2.18.1"]
-    [org.clojure/clojure "1.9.0"]
-    [org.clojure/tools.logging "0.4.1"]
-    [ring/ring-core "1.6.3"]]
+    [celtuce/celtuce "0.4.2"]
+    [org.clojure/clojure "1.11.1"]
+    [org.clojure/tools.logging "1.2.4"]
+    [ring/ring-core "1.9.6"]]
   :profiles {
     :uber {
       :aot :all}

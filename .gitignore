@@ -11,3 +11,8 @@ pom.xml.asc
 *.class
 .lein-*
 .nrepl-*
+.portal
+.clj-kondo
+.calva
+.cpcache
+.lsp
