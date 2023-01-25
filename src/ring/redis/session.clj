@@ -1,6 +1,7 @@
 (ns ring.redis.session
   "Redis session storage."
   (:require [celtuce.commands :as redis]
+            [celtuce.pool :as pool]
             [celtuce.connector :as conn]
             [clojure.tools.logging :as log]
             [ring.middleware.session.store :as api]
@@ -13,31 +14,31 @@
 (defn read-redis-session
   "Read a session from a Redis store."
   [this session-key]
-  (let [conn (:redis-conn this)
-        cmds (conn/commands-sync conn)]
+  (let [conn (:conn-pool this)]
     (when session-key
       (log/debug "In read-session ...")
       (log/debug "\tsession-key:" session-key)
-      (when-let [data  (redis/get cmds session-key)]
-        (let [read-handler (:read-handler this)]
-          (when (and (:expiration this) (:reset-on-read this))
-            (redis/expire cmds session-key (:expiration this)))
-          (read-handler data))))))
+      (pool/with-conn-pool conn cmds
+        (when-let [data  (redis/get cmds session-key)]
+          (let [read-handler (:read-handler this)]
+            (when (and (:expiration this) (:reset-on-read this))
+              (redis/expire cmds session-key (:expiration this)))
+            (read-handler data)))))))
 
 (defn write-redis-session
   "Write a session to a Redis store."
   [this old-session-key data]
-  (let [conn (:redis-conn this)
-        cmds (conn/commands-sync conn)
+  (let [conn (:conn-pool this)
         session-key (or old-session-key (util/new-session-key (:prefix this)))
         expiri (:expiration this)]
     (log/debug "In write-redis-session ...")
     (log/debug "\tsession-key:" session-key)
     (log/debug "\tdata:" (util/log-pprint data))
-    (let [write-handler (:write-handler this)]
-      (if expiri
-        (redis/setex cmds session-key expiri (write-handler data))
-        (redis/set cmds session-key (write-handler data))))
+    (pool/with-conn-pool conn cmds
+      (let [write-handler (:write-handler this)]
+        (if expiri
+          (redis/setex cmds session-key expiri (write-handler data))
+          (redis/set cmds session-key (write-handler data)))))
     session-key))
 
 (defn delete-redis-session
@@ -50,7 +51,7 @@
 ;;;   Protocol Implementation   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defrecord RedisStore [redis-conn prefix expiration reset-on-read read-handler write-handler])
+(defrecord RedisStore [redis-conn prefix expiration reset-on-read read-handler write-handler conn-pool])
 
 (def store-behaviour {:read-session read-redis-session
                       :write-session write-redis-session
@@ -72,4 +73,5 @@
                      write-handler identity
                      reset-on-read false}}]
    (log/debug "Creating Redis store ...")
-   (->RedisStore redis-conn prefix expire-secs reset-on-read read-handler write-handler)))
+   (let [conn-pool (pool/conn-pool redis-conn conn/commands-sync)]
+     (->RedisStore redis-conn prefix expire-secs reset-on-read read-handler write-handler conn-pool))))
