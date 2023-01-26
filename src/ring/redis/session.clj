@@ -73,5 +73,5 @@
                      write-handler identity
                      reset-on-read false}}]
    (log/debug "Creating Redis store ...")
-   (let [conn-pool (pool/conn-pool redis-conn conn/commands-sync)]
+   (let [conn-pool (pool/conn-pool redis-conn conn/commands-sync {:max-total 64, :max-idle 64, :min-idle 8})]
      (->RedisStore redis-conn prefix expire-secs reset-on-read read-handler write-handler conn-pool))))
